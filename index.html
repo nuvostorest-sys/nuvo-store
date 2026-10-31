@@ -43,7 +43,7 @@ footer{text-align:center;color:var(--mut);padding:20px 5vw 80px;font-size:13px}f
 <div class="bar"><input id="q" placeholder="Buscar artículos" oninput="rp()"><span id="cats"></span></div>
 <div class="grid" id="grid"></div></main>
 <footer><img class="fl" id="fl" alt=""><button onclick="doc('priv')">Aviso de privacidad</button><button onclick="doc('ret')">Envíos y devoluciones</button><button onclick="loginV()">Administrador</button><div>Tu tienda de confianza</div><div>© NÜVO STORE</div></footer>
-<a class="wa" id="wa" target="_blank" rel="noopener">WhatsApp</a><div id="m"></div>
+<a class="wa" id="wa" target="_blank" rel="noopener">WhatsApp</a><div id="m"></div><script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script><script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script><script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script>
 const K='nuvo_v1',$=s=>document.querySelector(s),esc=t=>String(t==null?'':t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const money=n=>'$'+Number(n).toLocaleString('es-MX')+' MXN',pr=p=>p.o>0&&p.o<p.p?p.o:p.p;
@@ -54,7 +54,10 @@ coupons:[{k:'NUVO10',pct:10}]};
 let S,cart=[],coupon=null,bi=0,cat='Todos',idx={},admin=false;
 try{S=JSON.parse(localStorage.getItem(K))}catch(e){}try{cart=JSON.parse(localStorage.getItem(K+'c'))||[]}catch(e){}
 S=S||JSON.parse(JSON.stringify(def));
-const sv=()=>{try{localStorage.setItem(K,JSON.stringify(S));localStorage.setItem(K+'c',JSON.stringify(cart))}catch(e){}};
+/* Configuración de Firebase de NÜVO STORE */
+const FB={apiKey:'AIzaSyBHc9QWbBEFihF8tMBPc_22e_Iuv7go-J4',authDomain:'nuvo-store-fcedb.firebaseapp.com',projectId:'nuvo-store-fcedb',appId:'1:688771283393:web:b3b8a3f46cd409b4ccd740'},FBon=!!FB.apiKey&&typeof firebase!=='undefined';
+if(FBon)S={cfg:def.cfg,products:[],banners:[],coupons:[]};
+let tm;const sv=()=>{try{localStorage.setItem(K+'c',JSON.stringify(cart));if(!FBon)localStorage.setItem(K,JSON.stringify(S))}catch(e){}if(FBon&&admin){clearTimeout(tm);tm=setTimeout(()=>db.doc('store/main').set(S).catch(e=>alert('No se pudo guardar: '+e.message)),600)}};
 const M=h=>{$('#m').innerHTML='<div class="mb" onclick="if(event.target===this)X()"><div class="mc">'+h+'</div></div>'},X=()=>{$('#m').innerHTML=''};
 const wa=t=>'https://wa.me/'+S.cfg.wa.replace(/\D/g,'')+'?text='+encodeURIComponent(t);
 function rb(){const b=S.banners;if(!b.length){$('#ban').innerHTML='';$('#dots').innerHTML='';return}bi%=b.length;const x=b[bi];
@@ -77,8 +80,10 @@ function cup(){const k=$('#cp').value.trim().toUpperCase();coupon=S.coupons.find
 function order(){const t=tot();let m='Hola, quiero hacer este pedido en NÜVO STORE:\n';cart.forEach(c=>{const p=S.products.find(x=>x.id==c.id);m+='• '+c.q+' × '+p.n+' — '+money(pr(p)*c.q)+'\n'});if(coupon)m+='Cupón: '+coupon.k+' (−'+money(t.d)+')\n';m+='Total: '+money(t.t)+' (envío a cotizar)';window.open(wa(m),'_blank')}
 const doc=k=>M('<h2>'+(k=='priv'?'Aviso de privacidad':'Envíos y devoluciones')+'</h2><p>'+esc(S.cfg[k])+'</p><button class="g" onclick="X()">Cerrar</button>');
 /* ADMIN (local de prueba: se reemplazará por Firebase Auth) */
-const loginV=()=>admin?A('p'):M('<h2>Administrador</h2><input id="pw" type="password" placeholder="Contraseña"><button onclick="if($(\'#pw\').value===\'nuvo2026\'){admin=true;A(\'p\')}else $(\'#pe\').textContent=\'Contraseña incorrecta\'">Entrar</button> <button class="g" onclick="X()">Cancelar</button><p class="mut" id="pe">Acceso de prueba: nuvo2026</p>');
-function A(t){const T=[['p','Artículos'],['b','Banners'],['c','Cupones'],['a','Ajustes']];let h='<h2>Panel de administrador</h2><div class="tabs">'+T.map(x=>'<button class="'+(x[0]==t?'':'g')+'" onclick="A(\''+x[0]+'\')">'+x[1]+'</button>').join('')+'<button class="g" onclick="X()">Cerrar</button></div>';
+const fbV=()=>M('<h2>Administrador</h2><input id="em" type="email" placeholder="Correo"><input id="pw" type="password" placeholder="Contraseña"><button onclick="fbin()">Entrar</button> <button class="g" onclick="X()">Cancelar</button><p class="mut" id="pe"></p>');
+const fbin=()=>auth.signInWithEmailAndPassword($('#em').value.trim(),$('#pw').value).then(()=>{admin=true;db.doc('store/main').get().then(d=>{if(!d.exists){S=JSON.parse(JSON.stringify(def));db.doc('store/main').set(S);rb();rp()}});A('p')}).catch(()=>{$('#pe').textContent='Correo o contraseña incorrectos'});
+const loginV=()=>admin?A('p'):FBon?fbV():M('<h2>Administrador</h2><input id="pw" type="password" placeholder="Contraseña"><button onclick="if($(\'#pw\').value===\'nuvo2026\'){admin=true;A(\'p\')}else $(\'#pe\').textContent=\'Contraseña incorrecta\'">Entrar</button> <button class="g" onclick="X()">Cancelar</button><p class="mut" id="pe">Acceso de prueba: nuvo2026</p>');
+function A(t){const T=[['p','Artículos'],['b','Banners'],['c','Cupones'],['a','Ajustes']];let h='<h2>Panel de administrador</h2><div class="tabs">'+T.map(x=>'<button class="'+(x[0]==t?'':'g')+'" onclick="A(\''+x[0]+'\')">'+x[1]+'</button>').join('')+'<button class="g" onclick="X()">Cerrar</button>'+(FBon?'<button class="g" onclick="auth.signOut();admin=false;X()">Salir</button>':'')+'</div>';
 if(t=='p')h+='<button onclick="pf(0)">Nuevo artículo</button><p></p>'+S.products.map(p=>'<div class="box"><b>'+esc(p.n)+'</b> — '+money(pr(p))+' · Existencias: '+p.s+(p.v?'':' · <span class="mut">oculto</span>')+'<div class="row"><button class="g" onclick="pf('+p.id+')">Editar</button><button class="g" onclick="tg('+p.id+')">'+(p.v?'Bajar':'Subir')+'</button><button class="r" onclick="dl('+p.id+')">Eliminar</button></div></div>').join('');
 if(t=='b')h+='<button onclick="S.banners.push({t:\'Nuevo banner\',s:\'\',img:\'\',c:\'#2a2622\'});sv();rb();A(\'b\')">Agregar banner</button><p></p>'+S.banners.map((b,i)=>'<div class="box">'+inp('Título','banners',i,'t')+inp('Subtítulo','banners',i,'s')+inp('URL de imagen (opcional)','banners',i,'img')+inp('Color de fondo','banners',i,'c')+'<button class="r" onclick="S.banners.splice('+i+',1);sv();rb();A(\'b\')">Eliminar</button></div>').join('');
 if(t=='c')h+='<button onclick="S.coupons.push({k:\'NUEVO\',pct:5});sv();A(\'c\')">Agregar cupón</button><p></p>'+S.coupons.map((c,i)=>'<div class="box">'+inp('Código','coupons',i,'k')+inp('Descuento (%)','coupons',i,'pct')+'<button class="r" onclick="S.coupons.splice('+i+',1);sv();A(\'c\')">Eliminar</button></div>').join('');
@@ -89,5 +94,6 @@ M('<h2>'+(id?'Editar':'Nuevo')+' artículo</h2>'+f('n','Nombre',p.n)+f('c','Cate
 function ps(id){const g=k=>$('#f'+k).value,o={id:id||Date.now(),n:g('n')||'Sin nombre',c:g('c'),p:+g('p')||0,o:+g('o')||0,s:+g('s')||0,i:g('i').split('\n').map(x=>x.trim()).filter(Boolean),d:g('d'),v:$('#fv').checked?1:0};
 const i=S.products.findIndex(x=>x.id==id);i<0?S.products.push(o):S.products[i]=o;sv();rp();A('p')}
 const tg=id=>{const p=S.products.find(x=>x.id==id);p.v=p.v?0:1;sv();rp();A('p')},dl=id=>{S.products=S.products.filter(x=>x.id!=id);sv();rp();A('p')};
+let db,auth;if(FBon){firebase.initializeApp(FB);db=firebase.firestore();auth=firebase.auth();auth.onAuthStateChanged(u=>{admin=!!u});db.doc('store/main').onSnapshot(s=>{if(s.metadata.hasPendingWrites)return;if(s.exists){S=Object.assign({cfg:def.cfg,products:[],banners:[],coupons:[]},s.data());rb();rp()}},e=>console.error(e))}
 $('#fl').src=$('.logo img').src;rb();rp();setInterval(()=>{if(S.banners.length>1&&!$('#m').innerHTML){bi++;rb()}},5000);
 </script></body></html>
